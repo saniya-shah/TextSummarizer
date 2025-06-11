@@ -1,0 +1,182 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Automated Text Summarizer</title>
+  <link rel="icon" href="{% static 'favicon.ico' %}" type="image/x-icon">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <style>
+    body.dark-mode {
+      background-color: #121212;
+      color: white;
+    }
+  
+    .navbar {
+      background-color: #000 !important; /* Always dark navbar */
+    }
+  
+    .form-control,
+    #summary-output,
+    #sidebar {
+      transition: background-color 0.3s, color 0.3s;
+    }
+  
+    body.dark-mode .form-control,
+    body.dark-mode #summary-output,
+    body.dark-mode #sidebar {
+      background-color: #1a1a1a;
+      color: white;
+    }
+  
+    body:not(.dark-mode) .form-control,
+    body:not(.dark-mode) #summary-output,
+    body:not(.dark-mode) #sidebar {
+      background-color: white;
+      color: black;
+    }
+  
+    #container {
+      display: flex;
+      height: 100vh;
+    }
+  
+    #main {
+      flex: 1;
+      padding: 2rem;
+    }
+  
+    #divider {
+      width: 5px;
+      cursor: col-resize;
+      background-color: #ccc;
+    }
+  
+    #sidebar {
+      width: 300px;
+      padding: 1rem;
+      overflow-y: auto;
+      background-color: #f4f4f4;
+    }
+  </style>
+  
+</head>
+<body>
+  <nav class="navbar navbar-dark text-white px-3">
+    <span class="navbar-brand">Text Summarizer</span>
+    <div class="form-check form-switch ms-auto">
+      <input class="form-check-input" type="checkbox" id="darkModeToggle"/>
+      <label class="form-check-label text-white" for="darkModeToggle">Dark Mode</label>
+    </div>
+  </nav>
+
+  <div id="container">
+    <div id="main">
+      <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label for="text" class="form-label">Enter Text</label>
+          <textarea class="form-control" id="text" name="text" rows="6" placeholder="Paste or write your text here...">{{ request.POST.text }}</textarea>
+        </div>
+        <div class="mb-3">
+          <label for="file" class="form-label">Upload a file (.pdf or .txt)</label>
+          <input type="file" class="form-control" id="file" name="file">
+        </div>
+        <button type="submit" class="btn btn-primary">Summarize</button>
+      </form>
+
+      {% if summary %}
+      <div class="mt-4">
+        <h5>Summary:</h5>
+        <div id="summary-output" class="p-3 mt-2 rounded shadow">{{ summary }}</div>
+        <button class="btn btn-outline-light mt-2" onclick="copySummary()">Copy</button>
+        <button class="btn btn-outline-light mt-2" onclick="downloadSummary()">Download</button>
+      </div>
+      {% endif %}
+      {% if sentiment %}
+                <div class="mt-4 alert alert-info">
+                    <strong>Sentiment:</strong> {{ sentiment }}
+                </div>
+      {% endif %}
+    </div>
+
+    <!-- Divider for resizing -->
+    <div id="divider"></div>
+
+    <!-- Right pane for previous summaries -->
+    <div id="sidebar">
+      <h6>Previous Summaries</h6>
+      {% for prev in previous_summaries %}
+        <div class="mb-3 p-2 border rounded">{{ prev }}</div>
+      {% endfor %}
+      
+
+    </div>
+  </div>
+
+  <!-- JavaScript -->
+  <script>
+    // Dark mode toggle
+    const toggle = document.getElementById('darkModeToggle');
+    const body = document.body;
+
+    if (localStorage.getItem('dark-mode') === 'enabled') {
+      body.classList.add('dark-mode');
+      toggle.checked = true;
+    }
+
+    toggle.addEventListener('change', function () {
+      if (this.checked) {
+        body.classList.add('dark-mode');
+        localStorage.setItem('dark-mode', 'enabled');
+      } else {
+        body.classList.remove('dark-mode');
+        localStorage.setItem('dark-mode', 'disabled');
+      }
+    });
+
+    // Resizable sidebar
+    const divider = document.getElementById('divider');
+    const sidebar = document.getElementById('sidebar');
+    const container = document.getElementById('container');
+    let isResizing = false;
+
+    divider.addEventListener('mousedown', function () {
+      isResizing = true;
+      document.body.style.cursor = 'col-resize';
+    });
+
+    document.addEventListener('mousemove', function (e) {
+      if (!isResizing) return;
+      const offset = container.offsetLeft;
+      const pointerX = e.clientX - offset;
+      const sidebarWidth = container.offsetWidth - pointerX;
+      if (sidebarWidth > 150 && sidebarWidth < 600) {
+        sidebar.style.width = `${sidebarWidth}px`;
+      }
+    });
+
+    document.addEventListener('mouseup', function () {
+      isResizing = false;
+      document.body.style.cursor = 'default';
+    });
+
+    // Copy to clipboard
+    function copySummary() {
+      const text = document.getElementById("summary-output").innerText;
+      navigator.clipboard.writeText(text).then(() => alert("Copied to clipboard!"));
+    }
+
+    // Download as .txt
+    function downloadSummary() {
+      const text = document.getElementById("summary-output").innerText;
+      const blob = new Blob([text], { type: "text/plain" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "summary.txt";
+      link.click();
+    }
+  </script>
+</body>
+</html>
